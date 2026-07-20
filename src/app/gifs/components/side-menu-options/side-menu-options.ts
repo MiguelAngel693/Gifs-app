@@ -17,7 +17,9 @@ interface MenuOptions{
 export class SideMenuOptions {
   gifService = inject(GifService);
 
-
+  clearHistory(){
+    this.gifService.clearHistory();
+  }
 
   menuOptions: MenuOptions[]=[
     {
