@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { GifsList } from "../../components/gifs-list/gifs-list";
 import { GifService } from '../../services/gifs';
 
@@ -27,8 +27,21 @@ import { GifService } from '../../services/gifs';
 export default class TrendingPage {
   gifService = inject(GifService);
   gifs = this.gifService.trendingGifs();
-  // gifs = computed(() => this.gifService.trendingGifs())
-  gifLog() {
-    console.log(this.gifService.trendingGifs())
+
+  scrollDiv = viewChild<ElementRef<HTMLDivElement>>('gifList');
+  onScroll(){
+    const scrollDiv = this.scrollDiv()?.nativeElement;
+    if(!scrollDiv)
+      return;
+    const scrollTop:number = scrollDiv.scrollTop;
+    const clientHeight = scrollDiv.clientHeight;
+    const scrollHeight: number = scrollDiv.scrollHeight;
+    const isAtBottom = scrollTop + clientHeight + 300 >= scrollHeight;
+
+
+    if(isAtBottom){
+      this.gifService.loadTrendingGifs();
+    }
   }
+
 }

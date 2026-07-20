@@ -4,13 +4,13 @@ import { environment } from '@environments/environment';
 import type { GiphyResponse } from '../interfaces/giphy';
 import { Gif } from '../interfaces/gif';
 import { GifMapper } from '../mapper/gif.mapper';
-import { map, tap } from 'rxjs';
+import { map, Observable, tap } from 'rxjs';
 
-function loadFromLocalStorage(): Record<string,Gif[]>{
+function loadFromLocalStorage(): Record<string, Gif[]> {
   // const rawHistory = localStorage.getItem('history') ?? '';
   // const raw = JSON.parse(localStorage.getItem('history')??'');
   // const history: Record<string,Gif[]> = raw;
-  const history: Record<string,Gif[]> = JSON.parse(localStorage.getItem('history')??'{}');
+  const history: Record<string, Gif[]> = JSON.parse(localStorage.getItem('history') ?? '{}');
   return history;
 }
 
@@ -19,8 +19,10 @@ function loadFromLocalStorage(): Record<string,Gif[]>{
 })
 export class GifService {
   private http = inject(HttpClient);
+  private trendingPage = signal(0);
+  private searchPage = signal(0);
   trendingGifs = signal<Gif[]>([]);
-  trendingGifsLoading = signal(true);
+  trendingGifsLoading = signal(false);
   foundGifs = signal<Gif[]>([]);
 
   // searchHistory = signal<Record<string, Gif[]>>({});
@@ -28,7 +30,7 @@ export class GifService {
   searchHistoryKeys = computed(() =>
     Object.keys(this.searchHistory()));
 
-  saveToLocalStorage = effect(()=>{
+  saveToLocalStorage = effect(() => {
     localStorage.setItem('history', JSON.stringify(this.searchHistory()));
   })
 
@@ -38,16 +40,20 @@ export class GifService {
 
 
   loadTrendingGifs() {
+    if (this.trendingGifsLoading()) return;
+    this.trendingGifsLoading.set(true);
+
     this.http.get<GiphyResponse>(`${environment.giphyUrl}/gifs/trending`, {
       params: {
         api_key: `${environment.gifsApiKey}`,
-        limit: 20
+        limit: 20,
+        offset: this.trendingPage() * 20,
       }
     }).subscribe((resp) => {
       const gifs = GifMapper.mapGiphyItemsToArray(resp.data);
-      this.trendingGifs.set(gifs);
+      this.trendingGifs.update(currentGifs => [...currentGifs, ...gifs]);
       this.trendingGifsLoading.set(false);
-      console.log({ gifs });
+      this.trendingPage.update(current => current + 1);
     })
   }
 
@@ -56,26 +62,25 @@ export class GifService {
       params: {
         api_key: `${environment.gifsApiKey}`,
         limit: 20,
+        offset: this.searchPage() * 20,
         q: query,
       }
     }).pipe(
+      tap(() => { this.searchPage.update(value => value + 1) }),
       map(resp => GifMapper.mapGiphyItemsToArray(resp.data)),
       tap(items => {
-        this.searchHistory.update(history => ({
-          ...history, [query.toLowerCase()]: items
-        }))
+        this.searchHistory.update(history => ({ ...history, [query.toLowerCase()]: [...history[query.toLowerCase()] ?? [], ...items] }),
+        )
       })
-    )
-      ;
-    // .subscribe((resp) => {
-    //   const gifs = GifMapper.mapGiphyItemsToArray(resp.data);
-    //   this.foundGifs.set(gifs);
-    //   // this.trendingGifsLoading.set(false);
-    //   console.log({gifs});
-    // })
+    );
   }
 
-  getHistoryGifs( query: string): Gif[]{
+  newSearch(query: string): Observable<Gif[]> {
+    this.searchPage.set(0);
+    return this.searchGifs(query);
+  }
+
+  getHistoryGifs(query: string): Gif[] {
     return this.searchHistory()[query] ?? [];
   }
 }
