@@ -1,7 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from "@angular/router";
 import { GifService } from '../../services/gifs';
-import { TitleCasePipe } from '@angular/common';
 
 interface MenuOptions{
   label: string,
@@ -12,7 +11,7 @@ interface MenuOptions{
 
 @Component({
   selector: 'gifs-side-menu-options',
-  imports: [RouterLink, RouterLinkActive, TitleCasePipe],
+  imports: [RouterLink, RouterLinkActive],
   templateUrl: './side-menu-options.html',
 })
 export class SideMenuOptions {
